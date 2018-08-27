@@ -106,7 +106,7 @@ class FMNetManager: NSObject, FMNetManagerProtocol {
         let paraString = self.getStringFromPara(para: para)
         switch method {
         case .GET:
-            request = URLRequest(url: URL(string: "\(url?.absoluteString)?\(paraString)")!)
+            request = URLRequest(url: URL(string: "\(url!.absoluteString)?\(paraString)")!)
             break
         case .POST:
             request = URLRequest(url: url!)
