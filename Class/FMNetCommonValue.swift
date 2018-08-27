@@ -32,6 +32,12 @@ struct FMNetUpload {
     public let completeHandle: FMNetCompleteHandle
 }
 
+struct FMNetUploadPara {
+    public let paraName: String
+    public let fileName: String
+    public let data: Data
+    public let fileType: String
+}
 
 // 回调完成的错误
 enum FMNetError {
@@ -40,6 +46,15 @@ enum FMNetError {
 }
 // 回调的结果
 enum FMNetCompleteValue {
+    /*
+     1. 正常的请求
+     any 是请求返回的数据
+     string 为nil
+     2. 下载
+     any 是下载的成功的路径
+     string 是下载的唯一标识  就是url路劲
+     
+     */
     case success(Any,String?)
     case failure(FMNetError,String?)
     

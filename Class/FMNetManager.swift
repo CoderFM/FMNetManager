@@ -20,7 +20,7 @@ protocol FMNetManagerProtocol {
 
 extension FMNetManagerProtocol{
     func timeOut() -> TimeInterval {
-        return 60
+        return 40
     }
 }
 
@@ -32,8 +32,8 @@ class FMNetManager: NSObject, FMNetManagerProtocol {
         super.init()
     }
     // MARK -- 一般的post请求
-    func post(baseUrl: String, urlPath: String, para: [String: Any]?, completeHandle: @escaping FMNetCompleteHandle) -> Void {
-        self.request(method: .POST, baseUrl: baseUrl, urlPath: urlPath, para: para, completeHandle: completeHandle)
+    func post(baseUrl: String, urlPath: String, header: [String: String]? = nil,para: [String: Any]?, completeHandle: @escaping FMNetCompleteHandle) -> Void {
+        self.request(method: .POST, baseUrl: baseUrl, urlPath: urlPath, header: header, para: para, completeHandle: completeHandle)
     }
     
     // MARK -- 一般的get请求
@@ -48,42 +48,48 @@ class FMNetManager: NSObject, FMNetManagerProtocol {
         downloadTask.resume()
     }
     
-    // MARK -- 上传文件
-    func uploadFile(url: String, filePath: String, progressBlock: @escaping FMNetUploadProgressBlock, completeHandle: @escaping FMNetCompleteHandle) -> Void {
-        self.uploadFile(url: url, para: nil, filePath: filePath, progressBlock: progressBlock, completeHandle: completeHandle)
-    }
+//    // MARK -- 上传文件
+//    func uploadFile(url: String, filePath: String, progressBlock: @escaping FMNetUploadProgressBlock, completeHandle: @escaping FMNetCompleteHandle) -> Void {
+//        self.uploadFile(url: url, para: nil, filePath: filePath, progressBlock: progressBlock, completeHandle: completeHandle)
+//    }
+//
+//    // MARK -- 上传文件
+//    func uploadFile(url: String, para:[String : Any]?, filePath: String, progressBlock: @escaping FMNetUploadProgressBlock, completeHandle: @escaping FMNetCompleteHandle) -> Void {
+//        self .uploadFile(url: url, para: para, fileUrl: URL(fileURLWithPath: filePath), progressBlock: progressBlock, completeHandle: completeHandle)
+//    }
+//
+//    // MARK -- 上传文件
+//    func uploadFile(url: String, para:[String : Any]?, fileUrl: URL, progressBlock: @escaping FMNetUploadProgressBlock, completeHandle: @escaping FMNetCompleteHandle) -> Void {
+//        guard let data = try? Data(contentsOf: fileUrl) else {
+//            let complete: FMNetCompleteValue
+//            let error = FMNetError.customError("路劲没有文件")
+//            complete = FMNetCompleteValue.failure(error,nil)
+//            completeHandle(complete)
+//            return
+//        }
+//        self .uploadFile(url: url, para: para, fileData: data, progressBlock: progressBlock, completeHandle: completeHandle)
+//    }
     
     // MARK -- 上传文件
-    func uploadFile(url: String, para:[String : Any]?, filePath: String, progressBlock: @escaping FMNetUploadProgressBlock, completeHandle: @escaping FMNetCompleteHandle) -> Void {
-        self .uploadFile(url: url, para: para, fileUrl: URL(fileURLWithPath: filePath), progressBlock: progressBlock, completeHandle: completeHandle)
-    }
-    
-    // MARK -- 上传文件
-    func uploadFile(url: String, para:[String : Any]?, fileUrl: URL, progressBlock: @escaping FMNetUploadProgressBlock, completeHandle: @escaping FMNetCompleteHandle) -> Void {
-        guard let data = try? Data(contentsOf: fileUrl) else {
-            let complete: FMNetCompleteValue
-            let error = FMNetError.customError("路劲没有文件")
-            complete = FMNetCompleteValue.failure(error,nil)
-            completeHandle(complete)
-            return
-        }
-        self .uploadFile(url: url, para: para, fileData: data, progressBlock: progressBlock, completeHandle: completeHandle)
-    }
-    
-    // MARK -- 上传文件
-    func uploadFile(url: String, para:[String : Any]?, fileData: Data, progressBlock: @escaping FMNetUploadProgressBlock, completeHandle: @escaping FMNetCompleteHandle) -> Void {
-        var lastUrl = url
-        let paraString = self.getStringFromPara(para: para)
-        if (paraString.characters.count > 0) {
-            lastUrl.append("?")
-            lastUrl.append(paraString)
-        }
-        let uploadData = self.uploadRequest(url: lastUrl, fileData: fileData)
-        
+    func uploadFile(url: String, para:[String : Any]?, header: [String: String]? = nil, files: [FMNetUploadPara], progressBlock: @escaping FMNetUploadProgressBlock, completeHandle: @escaping FMNetCompleteHandle) -> Void {
+        let lastUrl = url
+//        let paraString = self.getStringFromPara(para: para)
+////        if (paraString.characters.count > 0) {
+////            lastUrl.append("?")
+////            lastUrl.append(paraString)
+////        }
+        let uploadData = self.uploadRequest(url: lastUrl, files: files, para: para)
         var upload = FMNetUpload(uploadTask: nil, progressBlock: progressBlock, completeHandle: completeHandle)
         
+        var request = uploadData.uploadRequest
+        if header != nil {
+            for (key, value) in header! {
+                request.addValue(value, forHTTPHeaderField: key)
+            }
+        }
+        
         weak var weakSelf = self
-        let uploadTask = net_session.uploadTask(with: uploadData.uploadRequest , from: uploadData.bodyData) { (data, response, error) in
+        let uploadTask = net_session.uploadTask(with: request , from: uploadData.bodyData) { (data, response, error) in
             weakSelf?.completeHanle(data: data, response: response, error: error, uploadTask: upload.uploadTask,handle: completeHandle)
         }
         
@@ -93,7 +99,7 @@ class FMNetManager: NSObject, FMNetManagerProtocol {
     }
     
     // MARK -- 最终的获取数据的方法
-    private func request(method: FMNetMethod, baseUrl: String, urlPath: String, para: [String: Any]?, completeHandle: @escaping FMNetCompleteHandle){
+    private func request(method: FMNetMethod, baseUrl: String, urlPath: String, header: [String: String]? = nil,para: [String: Any]?, completeHandle: @escaping FMNetCompleteHandle){
 
         let url = URL(string: "\(baseUrl)\(urlPath)")
         var request: URLRequest
@@ -105,6 +111,11 @@ class FMNetManager: NSObject, FMNetManagerProtocol {
         case .POST:
             request = URLRequest(url: url!)
             request.httpMethod = method.rawValue
+            if header != nil {
+                for (key, value) in header! {
+                    request.addValue(value, forHTTPHeaderField: key)
+                }
+            }
             let data = paraString.data(using: .utf8)
             request.httpBody = data
             break
@@ -153,6 +164,8 @@ class FMNetManager: NSObject, FMNetManagerProtocol {
         
         guard let obj = try? JSONSerialization.jsonObject(with: data!, options: .allowFragments) else {
             let error = FMNetError.customError("没有响应数据或者解析错误")
+            let text = String(data: data!, encoding: .utf8)
+            print("网络请求返回数据为:\n\(text ?? "没有解析出任何数据")")
             complete = FMNetCompleteValue.failure(error,nil)
             handle(complete)
             self.removeUploadTask(task: uploadTask)
@@ -238,38 +251,51 @@ extension FMNetManager: URLSessionDownloadDelegate{
         }
     }
     
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        completionHandler(.performDefaultHandling, nil)
+    }
 }
 
 extension FMNetManager {
     // MARK -- 获取上传的request 以及  data
-    func uploadRequest(url: String, fileData: Data) -> (uploadRequest: URLRequest, bodyData: Data) {
+    func uploadRequest(url: String, files: [FMNetUploadPara], para: [String : Any]?) -> (uploadRequest: URLRequest, bodyData: Data) {
         var request = URLRequest(url: URL(string: url)!)
         request.httpMethod = "POST"
-        
         
         let boundary = "FMNetManager.boundary"
         let content = "multipart/form-data; boundary=\(boundary)"
         request.setValue(content, forHTTPHeaderField: "Content-Type")
         
-        var bodyStr = ""
-        bodyStr.append("--\(boundary)\r\n")
+        var data = Data()
+        let begin = "--\(boundary)\r\n";
+        let end = "\r\n--\(boundary)--"
+        
+        if para != nil {
+            for (key, value) in para! {
+                var paraString = ""
+                paraString.append(begin)
+                paraString.append("Content-Disposition: form-data; name=\"\(key)\"\r\n\r\n")
+                paraString.append("\(value)\r\n")
+                data.append(paraString.data(using: .utf8)!)
+            }
+        }
         
         let date = Date()
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyyMMddHHmmss"
-        let name = dateFormatter.string(from: date)
+        let time = dateFormatter.string(from: date)
         
-        bodyStr.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(name)\"\r\n")
-        bodyStr.append("Content-Type: application/octet-stream\r\n\r\n")
+        for upload in files {
+            data.append(begin.data(using: .utf8)!)
+            let name = "Content-Disposition: form-data; name=\"\(upload.paraName)\"; filename=\"\(time)\(upload.fileName)\"\r\n"
+            let type = "Content-Type: application/octet-stream\r\n\r\n"
+            data.append(name.data(using: .utf8)!)
+            data.append(type.data(using: .utf8)!)
+            data.append(upload.data)
+            data.append("\r\n".data(using: .utf8)!)
+        }
         
-        let endStr = "\r\n--\(boundary)--"
-        
-        var data = Data()
-        
-        data.append(bodyStr.data(using: .utf8)!)
-        data.append(fileData)
-        data.append(endStr.data(using: .utf8)!)
-        
+        data.append(end.data(using: .utf8)!)
         return (request, data)
     }
 }
